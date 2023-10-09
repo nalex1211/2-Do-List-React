@@ -91,7 +91,14 @@ function App() {
 		items.splice(result.destination.index, 0, reorderedItem);
 
 		setTasks(items);
+
+		localStorage.setItem("tasks", JSON.stringify(items));
+
+		if (connection && isConnected) {
+			connection.send("SendTasks", JSON.stringify(items));
+		}
 	};
+
 
 	return (
 		<div className="container">
