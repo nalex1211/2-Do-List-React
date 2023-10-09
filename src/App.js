@@ -9,6 +9,7 @@ function App() {
 	const [tasks, setTasks] = useState([]);
 	const [newTask, setNewTask] = useState("");
 
+
 	useEffect(() => {
 		const newConnection = new HubConnectionBuilder()
 			.withUrl("https://2dolistbackend.azurewebsites.net/taskhub")
@@ -21,14 +22,15 @@ function App() {
 	useEffect(() => {
 		if (connection) {
 			connection.start()
-				.then(() => {
+				.then(result => {
+					console.log('Connected!');
 					setIsConnected(true);
 
 					connection.on('ReceiveTasks', tasks => {
 						setTasks(JSON.parse(tasks));
 					});
 				})
-				.catch(e => console.error('Connection failed: ', e));
+				.catch(e => console.log('Connection failed: ', e));
 		}
 	}, [connection]);
 
@@ -39,38 +41,47 @@ function App() {
 		}
 	}, []);
 
+
+
 	const handleAddTask = () => {
 		if (newTask.trim()) {
-			const updatedTasks = [...tasks, newTask.trim()];
-			localStorage.setItem("tasks", JSON.stringify(updatedTasks));
-			if (connection && isConnected) {
-				connection.send("TaskAdded", newTask.trim());
-			}
-			setTasks(updatedTasks);
+			setTasks(prevTasks => {
+				const updatedTasks = [...prevTasks, newTask.trim()];
+				localStorage.setItem("tasks", JSON.stringify(updatedTasks));
+				if (connection && isConnected) {
+					connection.send("SendTasks", JSON.stringify(updatedTasks));
+				}
+				return updatedTasks;
+			});
 			setNewTask("");
 		}
 	};
 
 	const handleEditTask = (index) => {
 		const updatedTask = prompt("Edit your task:", tasks[index]);
-		if (updatedTask && updatedTask !== tasks[index]) {
-			const updatedTasks = [...tasks];
-			updatedTasks[index] = updatedTask;
-			localStorage.setItem("tasks", JSON.stringify(updatedTasks));
-			if (connection && isConnected) {
-				connection.send("TaskEdited", tasks[index], updatedTask);
-			}
-			setTasks(updatedTasks);
+		if (updatedTask) {
+			setTasks(prevTasks => {
+				const updatedTasks = [...prevTasks];
+				updatedTasks[index] = updatedTask;
+				localStorage.setItem("tasks", JSON.stringify(updatedTasks));
+				if (connection && isConnected) {
+					connection.send("SendTasks", JSON.stringify(updatedTasks));
+				}
+				return updatedTasks;
+			});
 		}
 	};
 
 	const handleDeleteTask = (index) => {
-		const updatedTasks = tasks.filter((_, i) => i !== index);
-		localStorage.setItem("tasks", JSON.stringify(updatedTasks));
-		if (connection && isConnected) {
-			connection.send("TaskDeleted", tasks[index]);
-		}
-		setTasks(updatedTasks);
+		setTasks(prevTasks => {
+			const updatedTasks = [...prevTasks];
+			updatedTasks.splice(index, 1);
+			localStorage.setItem("tasks", JSON.stringify(updatedTasks));
+			if (connection && isConnected) {
+				connection.send("SendTasks", JSON.stringify(updatedTasks));
+			}
+			return updatedTasks;
+		});
 	};
 
 	const handleOnDragEnd = (result) => {
@@ -79,14 +90,16 @@ function App() {
 		const items = Array.from(tasks);
 		const [reorderedItem] = items.splice(result.source.index, 1);
 		items.splice(result.destination.index, 0, reorderedItem);
+
+		setTasks(items);
+
 		localStorage.setItem("tasks", JSON.stringify(items));
 
 		if (connection && isConnected) {
-			connection.send("TaskMoved", items);
+			connection.send("SendTasks", JSON.stringify(items));
 		}
-
-		setTasks(items);
 	};
+
 
 	return (
 		<div className="container">
