@@ -8,6 +8,7 @@ function App() {
 	const [isConnected, setIsConnected] = useState(false);
 	const [tasks, setTasks] = useState([]);
 	const [newTask, setNewTask] = useState("");
+	const [highlightedTask, setHighlightedTask] = useState(null);
 
 	useEffect(() => {
 		const newConnection = new HubConnectionBuilder()
@@ -40,12 +41,11 @@ function App() {
 		}
 	}, []);
 
-
-
 	const handleAddTask = () => {
 		if (newTask.trim()) {
 			setTasks(prevTasks => {
 				const updatedTasks = [...prevTasks, newTask.trim()];
+				setHighlightedTask(newTask.trim());
 				localStorage.setItem("tasks", JSON.stringify(updatedTasks));
 				if (connection && isConnected) {
 					connection.send("SendTasks", JSON.stringify(updatedTasks));
@@ -62,6 +62,7 @@ function App() {
 			setTasks(prevTasks => {
 				const updatedTasks = [...prevTasks];
 				updatedTasks[index] = updatedTask;
+				setHighlightedTask(updatedTask);
 				localStorage.setItem("tasks", JSON.stringify(updatedTasks));
 				if (connection && isConnected) {
 					connection.send("SendTasks", JSON.stringify(updatedTasks));
@@ -74,7 +75,8 @@ function App() {
 	const handleDeleteTask = (index) => {
 		setTasks(prevTasks => {
 			const updatedTasks = [...prevTasks];
-			updatedTasks.splice(index, 1);
+			const deletedTask = updatedTasks.splice(index, 1)[0];
+			setHighlightedTask(deletedTask);
 			localStorage.setItem("tasks", JSON.stringify(updatedTasks));
 			if (connection && isConnected) {
 				connection.send("SendTasks", JSON.stringify(updatedTasks));
@@ -93,12 +95,20 @@ function App() {
 		setTasks(items);
 
 		localStorage.setItem("tasks", JSON.stringify(items));
-
 		if (connection && isConnected) {
 			connection.send("SendTasks", JSON.stringify(items));
 		}
 	};
 
+	useEffect(() => {
+		if (highlightedTask) {
+			const timer = setTimeout(() => {
+				setHighlightedTask(null);
+			}, 3000);
+
+			return () => clearTimeout(timer);
+		}
+	}, [highlightedTask]);
 
 	return (
 		<div className="container">
@@ -123,6 +133,7 @@ function App() {
 											{...provided.draggableProps}
 											{...provided.dragHandleProps}
 											ref={provided.innerRef}
+											style={task === highlightedTask ? { backgroundColor: '#FFFF99' } : {}}
 										>
 											<span>{task}</span>
 											<button onClick={() => handleEditTask(index)}>Edit</button>
