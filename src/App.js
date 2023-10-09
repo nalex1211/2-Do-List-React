@@ -5,7 +5,7 @@ import './App.css';
 
 function App() {
 	const [connection, setConnection] = useState(null);
-	const [isConnected, setIsConnected] = useState(false); // New state to track connection status
+	const [isConnected, setIsConnected] = useState(false);
 	const [tasks, setTasks] = useState([]);
 	const [newTask, setNewTask] = useState("");
 
