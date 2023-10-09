@@ -59,7 +59,6 @@ ul li {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	transition: transform 0.3s ease;
 }
 
 ul li span {

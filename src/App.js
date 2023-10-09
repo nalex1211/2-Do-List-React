@@ -8,7 +8,6 @@ function App() {
 	const [isConnected, setIsConnected] = useState(false);
 	const [tasks, setTasks] = useState([]);
 	const [newTask, setNewTask] = useState("");
-	const [highlightedTask, setHighlightedTask] = useState(null);
 
 	useEffect(() => {
 		const newConnection = new HubConnectionBuilder()
@@ -22,15 +21,14 @@ function App() {
 	useEffect(() => {
 		if (connection) {
 			connection.start()
-				.then(result => {
-					console.log('Connected!');
+				.then(() => {
 					setIsConnected(true);
 
 					connection.on('ReceiveTasks', tasks => {
 						setTasks(JSON.parse(tasks));
 					});
 				})
-				.catch(e => console.log('Connection failed: ', e));
+				.catch(e => console.error('Connection failed: ', e));
 		}
 	}, [connection]);
 
@@ -43,46 +41,36 @@ function App() {
 
 	const handleAddTask = () => {
 		if (newTask.trim()) {
-			setTasks(prevTasks => {
-				const updatedTasks = [...prevTasks, newTask.trim()];
-				setHighlightedTask(newTask.trim());
-				localStorage.setItem("tasks", JSON.stringify(updatedTasks));
-				if (connection && isConnected) {
-					connection.send("SendTasks", JSON.stringify(updatedTasks));
-				}
-				return updatedTasks;
-			});
+			const updatedTasks = [...tasks, newTask.trim()];
+			localStorage.setItem("tasks", JSON.stringify(updatedTasks));
+			if (connection && isConnected) {
+				connection.send("TaskAdded", newTask.trim());
+			}
+			setTasks(updatedTasks);
 			setNewTask("");
 		}
 	};
 
 	const handleEditTask = (index) => {
 		const updatedTask = prompt("Edit your task:", tasks[index]);
-		if (updatedTask) {
-			setTasks(prevTasks => {
-				const updatedTasks = [...prevTasks];
-				updatedTasks[index] = updatedTask;
-				setHighlightedTask(updatedTask);
-				localStorage.setItem("tasks", JSON.stringify(updatedTasks));
-				if (connection && isConnected) {
-					connection.send("SendTasks", JSON.stringify(updatedTasks));
-				}
-				return updatedTasks;
-			});
+		if (updatedTask && updatedTask !== tasks[index]) {
+			const updatedTasks = [...tasks];
+			updatedTasks[index] = updatedTask;
+			localStorage.setItem("tasks", JSON.stringify(updatedTasks));
+			if (connection && isConnected) {
+				connection.send("TaskEdited", tasks[index], updatedTask);
+			}
+			setTasks(updatedTasks);
 		}
 	};
 
 	const handleDeleteTask = (index) => {
-		setTasks(prevTasks => {
-			const updatedTasks = [...prevTasks];
-			const deletedTask = updatedTasks.splice(index, 1)[0];
-			setHighlightedTask(deletedTask);
-			localStorage.setItem("tasks", JSON.stringify(updatedTasks));
-			if (connection && isConnected) {
-				connection.send("SendTasks", JSON.stringify(updatedTasks));
-			}
-			return updatedTasks;
-		});
+		const updatedTasks = tasks.filter((_, i) => i !== index);
+		localStorage.setItem("tasks", JSON.stringify(updatedTasks));
+		if (connection && isConnected) {
+			connection.send("TaskDeleted", tasks[index]);
+		}
+		setTasks(updatedTasks);
 	};
 
 	const handleOnDragEnd = (result) => {
@@ -91,24 +79,14 @@ function App() {
 		const items = Array.from(tasks);
 		const [reorderedItem] = items.splice(result.source.index, 1);
 		items.splice(result.destination.index, 0, reorderedItem);
+		localStorage.setItem("tasks", JSON.stringify(items));
+
+		if (connection && isConnected) {
+			connection.send("TaskMoved", items);
+		}
 
 		setTasks(items);
-
-		localStorage.setItem("tasks", JSON.stringify(items));
-		if (connection && isConnected) {
-			connection.send("SendTasks", JSON.stringify(items));
-		}
 	};
-
-	useEffect(() => {
-		if (highlightedTask) {
-			const timer = setTimeout(() => {
-				setHighlightedTask(null);
-			}, 3000);
-
-			return () => clearTimeout(timer);
-		}
-	}, [highlightedTask]);
 
 	return (
 		<div className="container">
@@ -133,7 +111,6 @@ function App() {
 											{...provided.draggableProps}
 											{...provided.dragHandleProps}
 											ref={provided.innerRef}
-											style={task === highlightedTask ? { backgroundColor: '#FFFF99' } : {}}
 										>
 											<span>{task}</span>
 											<button onClick={() => handleEditTask(index)}>Edit</button>
